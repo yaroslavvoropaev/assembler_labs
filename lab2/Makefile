@@ -1,35 +1,36 @@
 AS = /usr/bin/nasm
 LD = /usr/bin/ld
 
-ASFLAGS = -g -f elf64 #-D SORT_ASCENDING 
+ASFLAGS = -g -f elf64
 LDFLAGS = -static
 
 SRCS = lab2.s
 OBJS = $(SRCS:.s=.o)
 
-EXE = lab2
+EXE = program
 
-all: $(SRCS) $(EXE)
+ifeq ($(SORT),ascending)
+    ASFLAGS += -DSORT_ASCENDING
+    EXE := program_asc
+else
+    EXE := program_desc
+endif
 
-clean:
-	rm -rf $(EXE) $(OBJS)
+all: $(EXE)
 
 $(EXE): $(OBJS)
-	$(LD) $(LDFLAGS) $(OBJS) -o $@
+	$(LD) $(LDFLAGS) $^ -o $@
 
-.s.o:
+%.o: %.s
 	$(AS) $(ASFLAGS) $< -o $@
 
+clean:
+	rm -rf $(OBJS) program_asc program_desc
 
+ascending:
+	$(MAKE) all SORT=ascending
 
+descending:
+	$(MAKE) all SORT=descending
 
-
-
-
-
-
-
-
-
-
-
+.PHONY: all clean ascending descending
