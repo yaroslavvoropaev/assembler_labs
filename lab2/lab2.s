@@ -1,3 +1,9 @@
+%ifdef SORT_ASCENDING
+    DIRECTION_VALUE equ 1
+%else
+    DIRECTION_VALUE equ 0
+%endif
+
 section .data
 
 ROWS_COUNT    equ 4
@@ -7,10 +13,9 @@ ROWS_OFFSET   equ 2 * COLUMNS_COUNT
 %define offset      r8
 %define full_offset r9
 
-matrix:
 rows_count:    db ROWS_COUNT
 columns_count: db COLUMNS_COUNT   
-    
+direction: db DIRECTION_VALUE    
 matrix_data:
     dw  10,  20, -30,  40,    23  
     dw -50,  60, -70, -80, -1324
@@ -18,45 +23,44 @@ matrix_data:
     dw 152, -23,-200,  67,  -329
 
 section .bss
-    col_maxes:   resw COLUMNS_COUNT                 ; Массив для хранения максимумов столбцов
-    col_indices: resb COLUMNS_COUNT                 ; Массив инлексов столбцов для перестановок
-    temp_buf:    resw COLUMNS_COUNT * ROWS_COUNT * 2    ; Буфер для временного хранения матрицы
+    col_maxes:   resw COLUMNS_COUNT             
+    col_indices: resb COLUMNS_COUNT
+    temp_buf:    resw COLUMNS_COUNT * ROWS_COUNT * 2    
 
 section .text
     global _start
 
-_start:
-    mov offset, matrix_data           
+_start: 
+mov offset, matrix_data           
 
-    mov rcx, COLUMNS_COUNT            ; rcx - счетчик для столбцов (i)
-    fill_first_max:
-        mov ax, [offset + rcx * 2 - 2]
-        mov [col_maxes + rcx * 2 - 2], ax
-        sub rcx, 1 
-        mov [col_indices + rcx], cl
-        add rcx, 1 
-    loop fill_first_max
+mov rcx, COLUMNS_COUNT            ; rcx - счетчик для столбцов (i)
+fill_first_max:
+    mov ax, [offset + rcx * 2 - 2]
+    mov [col_maxes + rcx * 2 - 2], ax
+    sub rcx, 1 
+    mov [col_indices + rcx], cl
+    add rcx, 1 
+loop fill_first_max
 
-    mov rcx, COLUMNS_COUNT                      
-    lea offset, [offset + COLUMNS_COUNT * 2]        
+mov rcx, COLUMNS_COUNT                      
+lea offset, [offset + COLUMNS_COUNT * 2]        
     
-    find_max_j: 
-        mov rdx, ROWS_COUNT
-        sub offset, 2
+find_max_j: 
+    mov rdx, ROWS_COUNT
+    sub offset, 2
             
-        mov  rbx, ROWS_OFFSET
-        imul rbx, rdx
-        lea full_offset, [offset + rbx]
+    mov  rbx, ROWS_OFFSET
+    imul rbx, rdx
+    lea full_offset, [offset + rbx]
         
-        find_max_i:     
-            sub full_offset, ROWS_OFFSET    
+    find_max_i:     
+        sub full_offset, ROWS_OFFSET    
+        mov si, [full_offset]
 
-            mov si, [full_offset]
-            cmp si, [col_maxes + rcx * 2 - 2]
-            
-            jle skip_rearrange
+        cmp si, [col_maxes + rcx * 2 - 2]    
+        jle skip_rearrange
 
-            mov [col_maxes + rcx * 2 - 2], si
+        mov [col_maxes + rcx * 2 - 2], si
 
 skip_rearrange: 
         dec rdx
@@ -68,6 +72,8 @@ skip_rearrange:
     mov r14, r13                ; r14 = gap (шаг) (изначально 5)
     mov r15, 0                  ; r15 = флаг swapped (были ли перестановки)
 
+
+    movzx r8, byte [direction]
 comb_sort_loop:
     ;gap = (gap * 10) / 13 
 
@@ -87,8 +93,7 @@ comb_sort_loop:
     mov r15, 0          ; swapped = 0
 
     mov r10, r13                ; r10 = длина массива
-    sub r10, r14                ;r10 = длина массива - gap
-    jle .check_end              ; if  длина массива <= gap
+    sub r10, r14                ; r10 = длина массива - gap
 
     xor rcx, rcx                ; i = 0
 
@@ -99,9 +104,20 @@ comb_sort_loop:
     mov ax, [col_maxes + rcx * 2]   ; col_maxes[i]
     mov dx, [col_maxes + r11 * 2]   ; col_maxes[i + gap]
 
+
+    test r8, r8
+    jz .descending
+
+.ascending:
     cmp ax, dx
     jle .no_swap    ; if  col_maxes[i] <= col_maxes[i+gap]
-    
+    jmp .swap    
+
+.descending:
+    cmp ax, dx
+    jge .no_swap    ; if >=
+
+.swap:
     mov [col_maxes + rcx * 2], dx
     mov [col_maxes + r11 * 2], ax
 
@@ -124,7 +140,6 @@ comb_sort_loop:
     cmp r15, 1
     je comb_sort_loop           ; gap ==  1, но были перестановки (аналог пузырька)
     
-
 
 ;КОПИРОВАНИЕ
 
@@ -162,4 +177,27 @@ comb_sort_loop:
     mov rax, 60              
     xor rdi, rdi             
     syscall
+
+
+error:
+    mov rax, 60
+    mov rdi, 1
+    syscall
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

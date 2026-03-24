@@ -1,7 +1,7 @@
 AS = /usr/bin/nasm
 LD = /usr/bin/ld
 
-ASFLAGS = -g -f elf64
+ASFLAGS = -g -f elf64 #-D SORT_ASCENDING 
 LDFLAGS = -static
 
 SRCS = lab2.s
