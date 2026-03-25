@@ -70,7 +70,7 @@ skip_rearrange:
 
     mov r13, COLUMNS_COUNT      ; r13 = длина массива (5)
     mov r14, r13                ; r14 = gap (шаг) (изначально 5)
-    mov r15, 0                  ; r15 = флаг swapped (были ли перестановки)
+    mov r15, 0                  ; r15 = флаг swapped 
 
 
     movzx r8, byte [direction]
@@ -90,7 +90,7 @@ comb_sort_loop:
     mov r14, 1                  ; gap >= 1
 
 .check_swapped:
-    mov r15, 0          ; swapped = 0
+    mov r15, 0                  ; swapped = 0
 
     mov r10, r13                ; r10 = длина массива
     sub r10, r14                ; r10 = длина массива - gap
@@ -115,7 +115,7 @@ comb_sort_loop:
 
 .descending:
     cmp ax, dx
-    jge .no_swap    ; if >=
+    jge .no_swap                ;>=
 
 .swap:
     mov [col_maxes + rcx * 2], dx
@@ -141,7 +141,7 @@ comb_sort_loop:
     je comb_sort_loop           ; gap ==  1, но были перестановки (аналог пузырька)
     
 
-;КОПИРОВАНИЕ
+                      ;КОПИРОВАНИЕ
 
     xor r8, r8                  ; r8 = смещение строк ( 0, 10, 20, 30)
     mov r12, ROWS_COUNT
@@ -151,25 +151,23 @@ comb_sort_loop:
     cmp r8, r12                 
     jge .done_reorder          ; if r8 >= r12
 
-    xor r9, r9                  ; r9 (i) = индекс нового столбца (от 0 до 4)
+    xor r9, r9                  ; r9 (i) = новый индекc (от 0 до 4)
 
 .col_loop:
     cmp r9, COLUMNS_COUNT       
     jge .next_row               ; if r9 >= COLUNBS_COUNT
 
-    movzx rax, byte [col_indices + r9]  ; rax = старый индекс (0..4)
+    movzx rax, byte [col_indices + r9]  ; rax = старый индекс ( от 0 до 4)
 
-    ; 2. Читаем элемент из оригинальной матрицы (matrix_data + смещение_строки + старый_индекс * 2)
-    mov cx, [matrix_data + r8 + rax * 2]  
+    mov cx, [matrix_data + r8 + rax * 2]  ; читаем из изначальной матрицы (matrix_data + смещение строки + старый индекс * 2)
 
-    ; 3. Записываем элемент в новый буфер (temp_buf + смещение_строки + новый_индекс * 2)
-    mov [temp_buf + r8 + r9 * 2], cx
+    mov [temp_buf + r8 + r9 * 2], cx ; записываем в новый буфер (temp_buf + смещение строки + новый инлекс * 2)
 
     inc r9                      ; Переходим к следующему новому столбцу
     jmp .col_loop
 
 .next_row:
-    add r8, ROWS_OFFSET         ; Увеличиваем смещение на размер одной строки (10 байт)
+    add r8, ROWS_OFFSET         ; увеличиваем смещение на размер одной строки (10)
     jmp .row_loop
 
 .done_reorder:
