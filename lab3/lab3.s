@@ -13,6 +13,15 @@ section .data
     msg_t       db "Текст:", 10
     len_t       equ $ - msg_t
  
+    err_open    db 10, "Ошибка: Не удалось открыть/создть файл", 10
+    len_err_o   equ $ - err_open
+    err_n       db 10, "Ошибка: Некорректное значение N (введите число)", 10
+    len_err_n   equ $ - err_n
+    err_write   db 10, "Ошибка: Сбой при записи в файл", 10
+    len_err_w   equ $ - err_write
+    err_ovf     db 10, "Ошибка: Слово слишком длинное для буфера", 10
+    len_err_ovf equ $ - err_ovf
+
     space       db ' '
     newline     db 10
 
@@ -20,39 +29,37 @@ section .bss
     filename    resb 256      ; под имя файла
     n_str       resb 32       ; строка для ввода сдвига
     shift_n     resq 1        ; число сдвига
-    fd_out      resq 1        ; файловый дескриптор 
+    fd_out      resq 1    ; rax < 0    ; файловый дескриптор 
     
     in_buf      resb BUF_SIZE ; буфер для ввода
     in_pos      resq 1        ; текущая позиция чтения в буфере
     in_bytes    resq 1        ; количество прочитанных байт в буфере
 
-    word_buf    resb 1048576  ; буфер для одного слова
+    word_buf    resb 1048576  ; буфер для одного слова 1 мб
     word_len    resq 1        ; длина одного слова
     is_first    resb 1
 
 section .text
     global _start
 
-_start :
+_start:
     ; ввод имени файла
-    mov rax, SYS_WRITE
-    mov rdi, 1
-    mov rsi, msg_f
-    mov rdx, len_f
-    syscall
+    mov rdi, 1                  ; 1, так как stdout
+    mov rsi, msg_f              ; адрес строки
+    mov rdx, len_f              ; длина строки
+    call safe_write
 
     mov rdi, filename
     call read_line  
 
     ; ввод числа сдвига
-    mov rax, SYS_WRITE
-    mov rdi, 1
-    mov rsi, msg_n
+    mov rdi, 1             
+    mov rsi, msg_n       
     mov rdx, len_n
-    syscall
+    call safe_write
 
-    mov rdi, n_str
-    call read_line
+    mov rdi, n_str         
+    call read_line 
     call parse_str_to_num
 
     ; открытие файла
@@ -61,14 +68,16 @@ _start :
     mov rsi, 577            ; флаги O_WRONLY | O_CREAT | O_TRUNC = 577
     mov rdx, 420            ; права 0644 (rw-r--r--) в восьм = 420 в дес
     syscall
-    mov [fd_out], rax
+    test rax, rax 
+    js exit_err_open      ; еcли rax отрицательный, ошибка открытия фалйа
 
-    ; ввод текста для сдвига              
-    mov rax, SYS_WRITE
+    mov [fd_out], rax           ; сохраняем файловый дескриптор
+
+    ; ввод текста для сдвига        
     mov rdi, 1
     mov rsi, msg_t
     mov rdx, len_t
-    syscall
+    call safe_write
 
     mov byte [is_first], 1        ; первое слово в строке
     mov qword [word_len], 0       ; длина текущего слова
@@ -76,7 +85,7 @@ _start :
     ; читаем по одному слову через буфер
 read_loop:
     call get_char
-    jc eof              ; если установлен carry  флаг (CF), значит eof
+    jc eof              ; if  (carry == 1)  флаг (CF), значит eof
 
     cmp al, ' '         ; пробел
     je handle_space
@@ -87,6 +96,9 @@ read_loop:
 
     ; иначе обычный символ
     mov rcx, [word_len]
+    cmp rcx, 1048575
+    jae exit_err_ovf        ; ошибка переполнение 
+
     mov [word_buf + rcx], al
     inc qword [word_len]
     jmp read_loop
@@ -98,11 +110,11 @@ handle_space:
 handle_new_line:
     call flush_word     ; записываем слово
 
-    mov rax, SYS_WRITE
     mov rdi, [fd_out]
     mov rsi, newline
     mov rdx, 1
-    syscall
+    call safe_write    ; проверяем щапись    
+
     mov byte [is_first], 1
     jmp read_loop
 
@@ -119,6 +131,45 @@ eof:
     xor rdi, rdi
     syscall
 
+
+exit_err_open:
+    mov rdi, 2
+    mov rsi, err_open
+    mov rdx, len_err_o
+    jmp exit_with_msg
+
+exit_err_n:
+    mov rdi, 2
+    mov rsi, err_n
+    mov rdx, len_err_n
+    jmp exit_with_msg
+
+exit_err_write:
+    mov rdi, 2
+    mov rsi, err_write
+    mov rdx, len_err_w
+    jmp exit_with_msg
+
+exit_err_ovf:
+    mov rdi, 2
+    mov rsi, err_ovf
+    mov rdx, len_err_ovf
+
+exit_with_msg:
+    mov rax, SYS_WRITE
+    syscall
+    mov rax, SYS_EXIT
+    mov rdi, 1
+    syscall
+
+; обертка над SYS_WRITE для проверки ошибок
+safe_write:
+    mov rax, SYS_WRITE  
+    syscall
+    test rax, rax  
+    js exit_err_write ; rax < 0
+    ret
+
 ; функция получения 1 символа из буфера
 get_char:
     mov rax, [in_pos]       ; в rax позиция в буфере
@@ -133,10 +184,10 @@ get_char:
     syscall
 
     cmp rax, 0
-    jle .eof                ; if (eof) 
+    jle .eof                ; if (rax == 0) => eof 
 
     mov [in_bytes], rax     ; cохраняем количество прочитанных байт
-    mov qword [in_pos], 0   ; cбрасываем позицию на начало буфера
+    mov qword [in_pos], 0   ; cбрасываем позицию на 0
 
 .fetch_from_buf:
     mov rcx, [in_pos]
@@ -170,14 +221,22 @@ read_line:
 
 ; перевод строки в число N
 parse_str_to_num:
-    mov rsi, n_str
-    xor rax, rax
+    mov rsi, n_str        
+    xor rax, rax         
     xor rcx, rcx
+
+    cmp byte [rsi], 0
+    je exit_err_n
 .parse_loop:
-    movzx rcx, byte [rsi]
+    movzx rcx, byte [rsi]     
 
     test rcx, rcx             
     jz .parse_done
+    ;символ должен быть цифрой 
+    cmp rcx, '0'
+    jl exit_err_n
+    cmp rcx, '9'
+    jg exit_err_n
 
     sub rcx, '0'
     imul rax, 10
@@ -198,12 +257,11 @@ flush_word:
     jne .calc_shift            ; если слово первое
     
     ; вывод пробела
-    mov rax, SYS_WRITE
     mov rdi, [fd_out]
     mov rsi, space
     mov rdx, 1
     push rcx
-    syscall
+    call safe_write
     pop rcx
 
 .calc_shift:
@@ -218,14 +276,13 @@ flush_word:
     test r8, r8
     jz .fw_left         ; если хвоста нет
     
-    mov rax, SYS_WRITE
     mov rdi, [fd_out]
     mov rsi, word_buf
     add rsi, r9         ; смещаемся к хвосту
     mov rdx, r8
     push r8
     push r9
-    syscall
+    call safe_write
     pop r9
     pop r8
 
@@ -233,11 +290,10 @@ flush_word:
     test r9, r9
     jz .fw_end
 
-    mov rax, SYS_WRITE
     mov rdi, [fd_out]
     mov rsi, word_buf
     mov rdx, r9
-    syscall
+    call safe_write
 
 .fw_end:
     mov byte [is_first], 0
