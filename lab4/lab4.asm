@@ -1,4 +1,4 @@
-extern printf
+etern printf
 extern scanf
 extern fopen
 extern fprintf
@@ -7,8 +7,9 @@ extern logf
 extern exit
 
 section .data
-    usage_msg    db "Ошибка: неверное количество аргументов.", 10, "Использование: %s <имя_выходного_файла>", 10, 0
+    usage_msg    db "Ошибка: неверное количество аргументов.", 10, "Использование: %s <имя выходного файла>", 10, 0
     err_open     db "Ошибка: не удалось открть файл для записи.", 10, 0
+    err_range    db "Ошибка: x должен быть в диапазоне (-1 < x <= 1).", 10, 0
     info_msg   db "Введите значение x (-1 < x <= 1) и точность: ", 0
     format_in       db "%f %f", 0
     format_out_term db "Член ряда %d: %f", 10, 0
@@ -22,15 +23,15 @@ section .data
     abs_mask     dd 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF
 
 section .bss
-    x        resd 1      ;float
+    x        resd 1      ; float
     eps      resd 1      ; float
-    file_ptr resq 1     ; 8 байт под FILE *
+    file_ptr resq 1      ; 8 байт под FILE *
 
 section .text
     global main
 
 main:
-    ; пролог для создания стекового кадра
+    ; пролог для создания стекового фрейма
     push rbp                    ; кладем в стек старый указатель базы кадрка
     mov rbp, rsp                
     sub rsp, 16                 
@@ -38,18 +39,16 @@ main:
     cmp rdi, 2                 ; rdi содержит args - количество аргументов
     jl .err_args
 
-    mov r12, qword [rsi + 8]          ; в r12 - argv[1] (второй аргумент)
-
-    ; открытия файла на запись 
+    mov r12, qword [rsi + 8]        ; в r12 - argv[1] (второй аргумент)
+ 
     mov rdi, r12                    ; имя файла
     mov rsi, mode_w                 ; режим  "w"
     call fopen                          
 
-    test rax, rax                  ; проверяем что указатель FILE * не 0
+    test rax, rax                  ; проверяем что указатель FILE * не null
     jz .err_open
     mov [file_ptr], rax             ; сохраняем FILE * 
 
-    ; ввод данных 
     mov rdi, info_msg
     mov al, 0              ; количество аргументов с плавающей точкой
     call printf
@@ -61,8 +60,17 @@ main:
     call scanf
 
     movss xmm0, dword [x]           ; старшие биты зануляются
+
+    movss xmm1, dword [float_1]     
+    ucomiss xmm0, xmm1              
+    ja .err_range                    ; если x > 1.0 
+
+    movss xmm1, dword [float_minus_1]  ; xmm1 = -1.0
+    ucomiss xmm0, xmm1               
+    jbe .err_range                  ; если x <= 1.0
+
     movss xmm1, dword [eps]         
-                                
+              
     xorps xmm2, xmm2                ; xmm2 = 0  (накапливаемая сумма)
     movss xmm3, dword [float_1]     ; n
     movaps xmm4, xmm0               ; для x^n
@@ -89,10 +97,9 @@ main:
     movss [rsp+16], xmm4
     movss [rsp+20], xmm5
 
-    ; вызываем fprintf(file, "Член ряда %d: %f\n", n, term)
     mov rdi, [file_ptr]
     mov rsi, format_out_term
-    mov edx, r13d               ; номер члена
+    mov edx, r13d                  ; номер члена
     cvtss2sd xmm0, xmm6         ; конвертируем float в double для printf
     mov al, 1                   ; 1 аргумент с плавающей точкой
     call fprintf
@@ -113,19 +120,18 @@ main:
     jmp .loop
 
 .done:
-    ; вычисляем log(1+x) через библиотеку
+    ; вычисляем ln(1+x) через библиотеку
     addss xmm0, dword [float_1] ; xmm0 = 1 + x
     sub rsp, 16                 ; выравнивание стека
     movss [rsp], xmm2           ; сохраняем нашу сумму
     call logf
-    movss xmm1, [rsp]           ; xmm1 = наша сумма, xmm0 = logf(1+x)
+    movss xmm1, [rsp]           ; xmm1 = моф cумма, xmm0 = logf(1+x)
     add rsp, 16
 
     ; double -> float 
     cvtss2sd xmm0, xmm0             
     cvtss2sd xmm1, xmm1             
     
-    ; меняем местами для printf
     movaps xmm2, xmm0               
     movaps xmm0, xmm1               
     movaps xmm1, xmm2               
@@ -153,6 +159,19 @@ main:
     mov rdi, err_open
     mov al, 0
     call printf
+    mov edi, 1
+    call exit
+
+
+.err_range:
+    mov rdi, err_range
+    mov al, 0
+    call printf
+    mov rdi, [file_ptr]
+    test rdi, rdi
+    jz .skip_close
+    call fclose
+.skip_close:
     mov edi, 1
     call exit
 
