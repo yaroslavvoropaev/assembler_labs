@@ -7,13 +7,13 @@ section .text
 ; ecx = int row_bytes
 ; r8d = int out_h
 crop_asm:
-    movsxd r8, r8d       ; r8 = out_h (высота)
+    movsxd r8, r8d
     test r8, r8
-    jle .end             ; если высота <= 0, выходим
+    jle .end             ; if (out_h <= 0) => выходим
 
-    movsxd rdx, edx      ; rdx = in_stride (шаг исходной матрицы)
-    movsxd r9, ecx       ; r9 = row_bytes (байт в строке для копирования)
- 
+    movsxd rdx, edx      ; rdx = in_stride 
+    movsxd r9, ecx       ; r9 = row_bytes
+
     ; меяем местами
     mov r10, rdi
     mov rdi, rsi
