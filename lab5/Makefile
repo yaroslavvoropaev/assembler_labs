@@ -4,7 +4,7 @@ CFLAGS_BASE = -O3 -Wall
 ASMFLAGS = -f elf64
 
 INPUT = test.png
-OUTPUT = result.png
+OUTPUT = result_c.png
 COORDS = 100 100 800 800
 
 OPTS = -O0 -O1 -O2 -O3 -Ofast

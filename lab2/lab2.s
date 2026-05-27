@@ -6,8 +6,8 @@
 
 section .data
 
-ROWS_COUNT    equ 4
-COLUMNS_COUNT equ 5
+ROWS_COUNT    equ 3
+COLUMNS_COUNT equ 10
 ROWS_OFFSET   equ 2 * COLUMNS_COUNT
 
 %define offset      r8
@@ -17,10 +17,9 @@ rows_count:    db ROWS_COUNT
 columns_count: db COLUMNS_COUNT   
 direction: db DIRECTION_VALUE    
 matrix_data:
-    dw  10,  20, -30,  40,    23  
-    dw -50,  60, -70, -80, -1324
-    dw   5,   0,-100,  15,  1445
-    dw 152, -23,-200,  67,  -329
+        dw  10,  20, -30,  40,  23,  11, -5,  99,  100,  15
+        dw -50,  60, -70, -80, -13,  44,  0,  12,  -33,  55
+        dw   5,   0,-100,  15,  14,  88, -1,   7,   21, -90
 
 section .bss
     col_maxes:   resw COLUMNS_COUNT             
@@ -31,11 +30,11 @@ section .text
     global _start
 
 _start: 
-mov offset, matrix_data           
+    mov offset, matrix_data           
 
-mov rcx, COLUMNS_COUNT            ; rcx - счетчик для столбцов (i)
+    mov rcx, COLUMNS_COUNT            ; rcx - счетчик для столбцов (i)
 fill_first_max:
-    mov ax, [offset + rcx * 2 - 2]
+    mov ax, [offset + rcx * 2 - 2]    
     mov [col_maxes + rcx * 2 - 2], ax
     sub rcx, 1 
     mov [col_indices + rcx], cl

@@ -1,4 +1,4 @@
-etern printf
+extern printf
 extern scanf
 extern fopen
 extern fprintf
@@ -30,11 +30,8 @@ section .bss
 section .text
     global main
 
-main:
-    ; пролог для создания стекового фрейма
-    push rbp                    ; кладем в стек старый указатель базы кадрка
-    mov rbp, rsp                
-    sub rsp, 16                 
+main:         
+    sub rsp, 8                 
     
     cmp rdi, 2                 ; rdi содержит args - количество аргументов
     jl .err_args
@@ -83,7 +80,7 @@ main:
 
     movaps xmm7, xmm6            ; копируем член ряда в xmm7
     pand xmm7, [abs_mask]        ; побитовое and c маской (cбрасываем старший знаковой бит)
-    ucomiss xmm7, xmm1           ; 
+    ucomiss xmm7, xmm1          
     jb .done
 
     addss xmm2, xmm6
@@ -122,11 +119,9 @@ main:
 .done:
     ; вычисляем ln(1+x) через библиотеку
     addss xmm0, dword [float_1] ; xmm0 = 1 + x
-    sub rsp, 16                 ; выравнивание стека
     movss [rsp], xmm2           ; сохраняем нашу сумму
     call logf
     movss xmm1, [rsp]           ; xmm1 = моф cумма, xmm0 = logf(1+x)
-    add rsp, 16
 
     ; double -> float 
     cvtss2sd xmm0, xmm0             
@@ -144,8 +139,7 @@ main:
     call fclose
 
     mov eax, 0                  ; return 0
-    add rsp, 16
-    pop rbp
+    add rsp, 8
     ret
 .err_args:
     mov rdi, usage_msg
@@ -161,7 +155,6 @@ main:
     call printf
     mov edi, 1
     call exit
-
 
 .err_range:
     mov rdi, err_range

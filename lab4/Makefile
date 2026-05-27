@@ -1,11 +1,9 @@
-AS = /usr/bin/nasm
-#LD = /usr/bin/ld
-CC = /usr/bin/gcc
+AS = nasm
+CC = gcc
 
 
 ASFLAGS = -g -f elf64
 
-# не -static
 LDFLAGS = -no-pie
 LIBS = -lm
 

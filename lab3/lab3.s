@@ -4,24 +4,24 @@
 %define SYS_CLOSE   3
 %define SYS_EXIT    60
 %define BUF_SIZE    4096    
+%define WORD_LEN_BUF 1048576
 
 section .data
     msg_f       db "Имя файла: "
     len_f       equ $ - msg_f
     msg_n       db "Сдвиг N: "
     len_n       equ $ - msg_n
-    msg_t       db "Текст:", 10
+    msg_t       db "Текст(Ctrl + D):", 10
     len_t       equ $ - msg_t
  
-    err_open    db 10, "Ошибка: Не удалось открыть/создть файл", 10
+    err_open    db 10, "Ошибка: не удалось открыть/создть файл", 10
     len_err_o   equ $ - err_open
-    err_n       db 10, "Ошибка: Некорректное значение N (введите число)", 10
+    err_n       db 10, "Ошибка: некорректное значение N (введите число)", 10
     len_err_n   equ $ - err_n
-    err_write   db 10, "Ошибка: Сбой при записи в файл", 10
+    err_write   db 10, "Ошибка: сбой при записи в файл", 10
     len_err_w   equ $ - err_write
-    err_ovf     db 10, "Ошибка: Слово слишком длинное для буфера", 10
+    err_ovf     db 10, "Ошибка:сслово слишком длинное для буфера", 10
     len_err_ovf equ $ - err_ovf
-
     space       db ' '
     newline     db 10
 
@@ -29,7 +29,7 @@ section .bss
     filename    resb 256      ; под имя файла
     n_str       resb 32       ; строка для ввода сдвига
     shift_n     resq 1        ; число сдвига
-    fd_out      resq 1    ; rax < 0    ; файловый дескриптор 
+    fd_out      resq 1          ; rax < 0    ; файловый дескриптор 
     
     in_buf      resb BUF_SIZE ; буфер для ввода
     in_pos      resq 1        ; текущая позиция чтения в буфере
@@ -65,8 +65,10 @@ _start:
     ; открытие файла
     mov rax, SYS_OPEN
     mov rdi, filename
-    mov rsi, 577            ; флаги O_WRONLY | O_CREAT | O_TRUNC = 577
-    mov rdx, 420            ; права 0644 (rw-r--r--) в восьм = 420 в дес
+    ;mov rsi, 577            ; флаги O_WRONLY | O_CREAT | O_TRUNC = 577 =  1  + 64 + 512
+    ;mov rdx, 420            ; права 0644 (rw-r--r--) в восьм = 420 в дес
+    mov rsi, 0b1001000001
+    mov rdx, 0o644
     syscall
     test rax, rax 
     js exit_err_open      ; еcли rax отрицательный, ошибка открытия фалйа
@@ -74,7 +76,7 @@ _start:
     mov [fd_out], rax           ; сохраняем файловый дескриптор
 
     ; ввод текста для сдвига        
-    mov rdi, 1
+    mov rdi, 1                 ; stdout
     mov rsi, msg_t
     mov rdx, len_t
     call safe_write
@@ -96,7 +98,7 @@ read_loop:
 
     ; иначе обычный символ
     mov rcx, [word_len]
-    cmp rcx, 1048575
+    cmp rcx, WORD_LEN_BUF
     jae exit_err_ovf        ; ошибка переполнение 
 
     mov [word_buf + rcx], al
@@ -133,7 +135,7 @@ eof:
 
 
 exit_err_open:
-    mov rdi, 2
+    mov rdi, 2                 ; 2, так как stderr
     mov rsi, err_open
     mov rdx, len_err_o
     jmp exit_with_msg
@@ -170,7 +172,7 @@ safe_write:
     js exit_err_write ; rax < 0
     ret
 
-; функция получения 1 символа из буфера
+; функцияe rолучения 1 символа из буфера
 get_char:
     mov rax, [in_pos]       ; в rax позиция в буфере
     cmp rax, [in_bytes]     

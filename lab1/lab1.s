@@ -20,7 +20,7 @@ _start:
 
     ; проверка нуля в знаминателе 
 
-    test r9w, r9w
+    test r9w, r9w ; логическое and
     jz _error
 
     test r11d, r11d
@@ -51,7 +51,7 @@ _start:
 
     mov ax, r8w
         
-    xor dx, dx
+    xor dx, dx ; исключающее or
     div r9w
 
     movzx r13, word ax ; результат a/b в  r13

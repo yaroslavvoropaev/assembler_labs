@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         crop_c(start_ptr, out_img_c, in_stride, row_bytes, out_h);
     }
     double end_t = get_time();
-    double time_c = (end_t - start_t) / iterations;
+    double time_c = (end_t - start_t) / iterations;    
 
     start_t = get_time();
     for (int i = 0; i < iterations; ++i) {
@@ -81,7 +81,7 @@ int main(int argc, char** argv) {
     printf("C Time:   %.6f sec\n", time_c);
     printf("ASM Time: %.6f sec\n", time_asm);
 
-    if (!stbi_write_png(output_file, out_w, out_h, channels, out_img_asm, row_bytes)) {
+    if (!stbi_write_png(output_file, out_w, out_h, channels, out_img_c, row_bytes)) {
         printf("Ошибка: не удалось сохранить файл.\n");
     }
 
